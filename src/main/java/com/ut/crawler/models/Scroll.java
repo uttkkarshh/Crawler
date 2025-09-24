@@ -11,9 +11,10 @@ public class Scroll {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-   
-
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String description;
+    
 
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -69,6 +70,14 @@ public class Scroll {
 	        snip.setScroll(this); // Reassign parent Scroll
 	        this.snips.add(snip);
 	    }
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
 	}
 
 }

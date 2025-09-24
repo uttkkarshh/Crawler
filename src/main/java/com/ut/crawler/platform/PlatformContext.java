@@ -12,10 +12,27 @@ public class PlatformContext {
     private String titleSelector;
     private String authorSelector;
     private Map<String, List<String>> elementsToRemove;
-
+    private String commentSelector;       // ✅ New field
+    private String postContentSelector; 
     // Constructors, Getters, Setters
 
-    public String getName() {
+    public String getCommentSelector() {
+		return commentSelector;
+	}
+
+	public void setCommentSelector(String commentSelector) {
+		this.commentSelector = commentSelector;
+	}
+
+	public String getPostContentSelector() {
+		return postContentSelector;
+	}
+
+	public void setPostContentSelector(String postContentSelector) {
+		this.postContentSelector = postContentSelector;
+	}
+
+	public String getName() {
 		return name;
 	}
 

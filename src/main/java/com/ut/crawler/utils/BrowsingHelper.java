@@ -20,213 +20,259 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import com.ut.crawler.models.Comment;
 import com.ut.crawler.models.Post;
 import com.ut.crawler.models.Scroll;
 import com.ut.crawler.models.Snip;
-import com.ut.crawler.platform.YouTubePlatform;
+import com.ut.crawler.repository.PostRepository;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class BrowsingHelper {
 
 	private static final Logger log = LoggerFactory.getLogger(BrowsingHelper.class);
-    private WebDriver driver;
-    
-	public WebDriver createHeadlessDriver() {
+	private WebDriver driver;
+	 public BrowsingHelper(WebDriver driver) {
+	        this.driver = driver;
+	    }
+	
 
-		ChromeOptions options = new ChromeOptions();
-		options.addArguments("--headless=new");
-//		options.addArguments("--no-sandbox");
-//		options.addArguments("--disable-gpu");
-//		options.addArguments("--disable-headless");
-		options.addArguments("--no-sandbox");
-		options.addArguments("--disable-gpu");
-		options.addArguments("--disable-blink-features=AutomationControlled");
-		options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115 Safari/537.36");
-
-		driver=new ChromeDriver(options);
-		return driver;
-	}
-
-	public void visitUrl( String url, int waitSeconds) {
+	public void visitUrl(String url, int waitSeconds) {
 		driver.get(url);
-		//String a = driver.getPageSource();
-		//System.out.print(a);
+
 		try {
-			Thread.sleep(waitSeconds * 1000L); // or use WebDriverWait
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
+			new WebDriverWait(driver, Duration.ofSeconds(waitSeconds))
+					.until(webDriver -> ((JavascriptExecutor) webDriver).executeScript("return document.readyState")
+							.equals("complete"));
+		} catch (TimeoutException e) {
+			log.warn("⚠️ Page did not load fully within {} seconds: {}", waitSeconds, url);
 		}
 	}
 
 	public String takeScreenshot(WebDriver driver) {
-		String outputPath = "screenshots/screenshot_" + System.currentTimeMillis() + ".png";
+	    String outputPath = "screenshots/screenshot_" + System.currentTimeMillis() + ".png";
+	    String compressedPath = "screenshots/compressed_" + System.currentTimeMillis() + ".jpg"; // compressed output
 
-		try {
-			// Ensure screenshots directory exists
-			new File("screenshots").mkdirs();
+	    try {
+	        // Ensure screenshots directory exists
+	        new File("screenshots").mkdirs();
 
-			File screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-			File outputFile = new File(outputPath);
-			Files.copy(screenshot.toPath(), outputFile.toPath());
+	        // Take screenshot as PNG first
+	        File screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+	        File outputFile = new File(outputPath);
+	        Files.copy(screenshot.toPath(), outputFile.toPath());
 
-			System.out.println("📸 Screenshot saved to: " + outputPath);
-			return outputPath;
-		} catch (IOException e) {
-			System.err.println("❌ Failed to take screenshot: " + e.getMessage());
-			return null;
-		}
+	        // Compress to JPEG with ~70% quality
+	        File compressedFile = new File(compressedPath);
+	        ImageCompressorUtils.compressToJpeg(outputFile, compressedFile, 0.7f);
+
+	        log.info("📸 Screenshot captured: {} | Compressed version: {}", outputPath, compressedPath);
+
+	        // Optionally delete the original PNG to save space
+	        outputFile.delete();
+
+	        return compressedPath;
+
+	    } catch (IOException e) {
+	        log.error("❌ Failed to take or compress screenshot: {}", e.getMessage(), e);
+	        return null;
+	    }
 	}
 
-	
+	public Comment analyzePostContentAndComments(String mainContentSelector, String commentSelector,
+			String platformName) {
 
-	public Scroll analyzePostContentAndComments(
-		    String mainContentSelector,
-		    String commentSelector,
-		    String platformName
-		) {
-		    Scroll scroll = new Scroll();
-		    JavascriptExecutor js = (JavascriptExecutor) driver;
+		Comment commentPost = null;
+		JavascriptExecutor js = (JavascriptExecutor) driver;
+		js.executeScript("window.scrollBy(0, 300);");
+		try {
+			List<WebElement> comments = new WebDriverWait(driver, Duration.ofSeconds(5))
+					.until(ExpectedConditions.presenceOfAllElementsLocatedBy(By.cssSelector(commentSelector)));
 
-		    try {
-		        List<WebElement> comments = driver.findElements(By.cssSelector(commentSelector));
-		        int commentIndex = 1;
-		        int l=comments.size();
-		        log.info("NO Comment #{}",l);
-		        for (WebElement commentElement : comments) {
-		            String commentText = js.executeScript("return arguments[0].innerText;", commentElement).toString();
+			log.info("💬 Found {} comments", comments.size());
+			
+			int commentIndex = 1;
+			for (WebElement commentElement : comments) {
+				
+				 log.info("➡️ Processing comment #{} | Location: {} | Size: {}x{}",
+		                    commentIndex,
+		                    commentElement.getLocation(),
+		                    commentElement.getSize().getWidth(),
+		                    commentElement.getSize().getHeight());
 
-		            // ✅ Scroll to this comment (not the whole list)
-		            js.executeScript(
-		                "window.scrollTo(0, arguments[0].getBoundingClientRect().top + window.scrollY - 10);",
-		                commentElement);
+		            // Print out partial text and outer HTML for debug
+		            String previewText = commentElement.getText();
+		            if (previewText.length() > 50) {
+		                previewText = previewText.substring(0, 50) + "...";
+		            }
+		            log.info("📝 Comment text preview: {}", previewText);
 
-		            Thread.sleep(2000); // Let the page settle/render after scroll
+		            log.debug("🔍 Outer HTML snippet: {}", commentElement.getAttribute("outerHTML"));
+				// Scroll into view
+				forceScrollToElement(driver, commentElement, 100);
 
-		            Post commentPost = new Post("Comment", driver.getCurrentUrl(), "Comment " + commentIndex);
-		            String screenshotPath = this.takeScreenshot(driver);
-                    
-		            Snip commentSnip = new Snip();
-		            commentSnip.setScreenshotPath(screenshotPath);
-		            commentSnip.addPost(commentPost);
-                    commentSnip.setScroll(scroll);
-		            scroll.addSnip(commentSnip);
-		            log.info("💬 Captured comment #{}", commentIndex);
+				// Wait until element is visible & stable
+			    new WebDriverWait(driver, Duration.ofSeconds(2)).until(ExpectedConditions.visibilityOf(commentElement));
+			
 
-		            commentIndex++;
-		            if (commentIndex > 5) break; // optional limit
-		        }
 
-		    } catch (Exception e) {
-		        log.error("❌ Error analyzing post and comments: {}", e.getMessage(), e);
-		    }
+				String screenshotPath = this.takeScreenshot(driver);
 
-		    return scroll;
+				commentPost = new Comment();
+				commentPost.setScreenshotPath(screenshotPath);
+
+				log.info("✅ Captured comment #{}", commentIndex);
+
+				if (commentIndex++ >= 5)
+					break; // limit
+
+				break;
+			}
+
+		} catch (TimeoutException e) {
+			log.info("🗨️ No comments loaded for {}", platformName);
+		} catch (Exception e) {
+			log.error("❌ Error analyzing post and comments: {}", e.getMessage(), e);
 		}
 
+		return commentPost;
+	}
 
-	public Scroll scrollAndCaptureSnips(WebDriver driver, int count, int skip, String itemSelector,
-			String titleSelector, String authorSelector, String platform, Map<String, List<String>> elementsToRemove) {
+	public Scroll scrollAndCaptureSnips(int count, int skip, String itemSelector, String titleSelector,
+			String authorSelector, String platform, Map<String, List<String>> elementsToRemove) {
+
 		Scroll scroll = new Scroll();
 		JavascriptExecutor js = (JavascriptExecutor) driver;
-		
-		for (Map.Entry<String, List<String>> entry : elementsToRemove.entrySet()) {
-	        String type = entry.getKey();
-	        for (String name : entry.getValue()) {
-	            if ("id".equalsIgnoreCase(type)) {
-	                removeElementById(name, js);
-	            } else if ("tag".equalsIgnoreCase(type)) {
-	                removeElementByTag(name, js);
-	            }
-	        }
-	    }
+
 		try {
-			List<WebElement> items = driver.findElements(By.cssSelector(itemSelector));
-			((JavascriptExecutor) driver).executeScript(
-				    "let modal = document.querySelector('div[role=\"dialog\"]');" +
-				    "if (modal) { modal.remove(); }"
-				);
+			// 1. Clean distracting elements
+			cleanPage(elementsToRemove, js);
 
-			int index = 0;
-			for (int i = 0; i < count; i++) {
-				if (index >= items.size()) {
-					log.warn("No more elements to scroll at index " + index);
-					break;
-				}
+			// 2. Fetch items
+			List<WebElement> items = waitForElements(itemSelector, 3);
 
-				WebElement item = items.get(index);
+			// 3. Close modal if present
+			closeModalIfPresent(js);
 
-				((JavascriptExecutor) driver).executeScript(
-						"window.scrollTo(0, arguments[0].getBoundingClientRect().top + window.scrollY - 20);", item);
-
-				Thread.sleep(2000); // Wait for scroll and rendering
+			// 4. Iterate posts
+			for (int i = 0; i < count && i < items.size(); i++) {
+				WebElement item = items.get(i);
 
 				try {
+					// Ensure visibility
+					
 
+					// Extract post info
 					Post post = createPostFromElement(item, titleSelector, authorSelector, js);
 					if (post == null)
 						continue;
 
-					// Create Snip and add Post
-					String currentScreenshotPath = this.takeScreenshot(driver);
 					Snip snip = new Snip();
-					snip.setScreenshotPath(currentScreenshotPath); // You should define this value accordingly
 					snip.addPost(post);
-                    snip.setScroll(scroll);
+					snip.setScroll(scroll);
+					String existingDesc = scroll.getDescription() != null ? scroll.getDescription() : "";
+					String postInfo = "\n- " 
+						    + post.getTitle().substring(0, Math.min(10, post.getTitle().length())) 
+						    + " (by " 
+						    + post.getAuthor().substring(0, Math.min(5, post.getAuthor().length())) 
+						    + ")";
+
+				    scroll.setDescription(existingDesc + postInfo);
+				    log.info(scroll.getDescription());
+					// Only screenshot every 3rd post
+					if (i % skip == 0) {
+						scrollIntoViewAndWait(item, js);
+						String screenshotPath = this.takeScreenshot(driver);
+						snip.setScreenshotPath(screenshotPath);
+						log.info("📸 Captured screenshot for post {}: {} by {}", i, post.getTitle(), post.getAuthor());
+					} else {
+						log.info("📝 Captured text-only snip {}: {} by {}", i, post.getTitle(), post.getAuthor());
+					}
+
 					scroll.addSnip(snip);
 
-					log.info("✅ Captured snip: {} by {}", post.getTitle(), post.getAuthor());
-
 				} catch (Exception e) {
-					log.warn("⚠️ Skipped item due to missing selectors at index {}", index);
+					log.warn("⚠️ Skipped item at index {}: {}", i, e.getMessage());
 				}
-
-				index += skip;
 			}
+
+		} catch (TimeoutException e) {
+			log.warn("⚠️ No elements found for selector: {}", itemSelector);
 		} catch (Exception e) {
-			log.error("❌ Error while capturing snips: " + e.getMessage(), e);
+			log.error("❌ Error while capturing snips: {}", e.getMessage(), e);
 		}
 
 		return scroll;
 	}
 
+	public List<String> getTextByCssSelector(String cssSelector, int limit) {
+		List<String> results = new ArrayList<>();
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+		try {
+			List<WebElement> elements = wait
+					.until(ExpectedConditions.presenceOfAllElementsLocatedBy(By.cssSelector(cssSelector)));
+
+			int index = 0;
+			for (WebElement element : elements) {
+				String text = element.getText().trim();
+				if (!text.isEmpty()) {
+					results.add(text);
+					log.info("📌 Element text: {}", text);
+				}
+				if (limit > 0 && ++index >= limit)
+					break;
+			}
+		} catch (TimeoutException e) {
+			log.warn("⏳ Timeout: No elements found for selector {}", cssSelector);
+		} catch (Exception e) {
+			log.error("❌ Error while fetching text for selector {}: {}", cssSelector, e.getMessage(), e);
+		}
+
+		return results;
+	}
+
 	private Post createPostFromElement(WebElement item, String titleSelector, String authorSelector,
 			JavascriptExecutor js) {
 		try {
-		    String title = "";
-		    String videoUrl = "";
+			String title = "";
+			String videoUrl = "";
 
-		    if (!titleSelector.isEmpty()) {
-		        WebElement titleEl = item.findElement(By.cssSelector(titleSelector));
-		        title = titleEl.getText();
-		        videoUrl = titleEl.getAttribute("href");
-		    } else {
-		        // Fallback if no title selector provided
-		        title = item.getText();
-		        videoUrl = ""; // or extract in another way if needed
-		    }
+			if (!titleSelector.isEmpty()) {
+				WebElement titleEl = item.findElement(By.cssSelector(titleSelector));
+				title = titleEl.getText();
+				videoUrl = titleEl.getAttribute("href");
+			} else {
+				// Fallback if no title selector provided
+				title = item.getText();
+				videoUrl = ""; // or extract in another way if needed
+			}
 
-		    String author = "";
-		    if (!authorSelector.isEmpty()) {
-		        WebElement authorEl = item.findElement(By.cssSelector(authorSelector));
-		        author = (String) js.executeScript("return arguments[0].textContent;", authorEl);
-		    }
+			String author = "";
+			if (!authorSelector.isEmpty()) {
+				WebElement authorEl = item.findElement(By.cssSelector(authorSelector));
+				author = (String) js.executeScript("return arguments[0].textContent;", authorEl);
+			}
 
-		    return new Post(title, videoUrl, author);
+			return new Post(title, videoUrl, author);
 		} catch (Exception e) {
-		    System.err.println("❌ Error creating post: " + e.getMessage());
-		    return null;
+			System.err.println("❌ Error creating post: " + e.getMessage());
+			return null;
 		}
 
 	}
 
-	
-	
-	
+	public String getCurrentUrl() {
+		return driver.getCurrentUrl();
+	}
+
 	public void waitForElement(WebDriver driver, String cssSelector, int timeoutSeconds) {
 		new WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
 				.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(cssSelector)));
@@ -256,54 +302,102 @@ public class BrowsingHelper {
 			driver.quit();
 		}
 	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	public  void login(WebDriver driver, String email, String password) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-        try {
-        	// this.takeScreenshot(driver);
-            // Step 1: Enter email
-            WebElement emailInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("input")
-            ));
-            emailInput.sendKeys(email);
-      //      this.takeScreenshot(driver);
-            // Step 2: Click Next after email
-            WebElement nextButton = wait.until(ExpectedConditions.elementToBeClickable(
-            	    By.xpath("//span[text()='Next']/ancestor::button\r\n")
-            	));
-            	nextButton.click();
-          //  	 this.takeScreenshot(driver);
+	public void executeJs(String js) {
+		JavascriptExecutor jsExecuter = (JavascriptExecutor) driver;
+		jsExecuter.executeScript(js);
+	}
 
-            // Step 3: Wait for password field
-            WebElement passwordInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector(" input[name='password']")
-            ));
-            passwordInput.sendKeys(password);
+	public void login(WebDriver driver, String email, String password) {
+		WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-            // Step 4: Click Next/Login button
-            WebElement passwordNextBtn = wait.until(ExpectedConditions.elementToBeClickable(
-            		 By.xpath("//span[text()='Login']/ancestor::button\r\n")
-            ));
-        //	 this.takeScreenshot(driver);
-            passwordNextBtn.click();
-        	 this.takeScreenshot(driver);
-        } catch (TimeoutException e) {
-            System.out.println("Timed out while trying to log in: " + e.getMessage());
-        } catch (NoSuchElementException e) {
-            System.out.println("Element not found: " + e.getMessage());
-        }
-    }
+		try {
+			// this.takeScreenshot(driver);
+			// Step 1: Enter email
+			WebElement emailInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("input")));
+			emailInput.sendKeys(email);
+			// this.takeScreenshot(driver);
+			// Step 2: Click Next after email
+			WebElement nextButton = wait.until(
+					ExpectedConditions.elementToBeClickable(By.xpath("//span[text()='Next']/ancestor::button\r\n")));
+			nextButton.click();
+			// this.takeScreenshot(driver);
+
+			// Step 3: Wait for password field
+			WebElement passwordInput = wait
+					.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(" input[name='password']")));
+			passwordInput.sendKeys(password);
+
+			// Step 4: Click Next/Login button
+			WebElement passwordNextBtn = wait.until(
+					ExpectedConditions.elementToBeClickable(By.xpath("//span[text()='Login']/ancestor::button\r\n")));
+			// this.takeScreenshot(driver);
+			passwordNextBtn.click();
+			this.takeScreenshot(driver);
+		} catch (TimeoutException e) {
+			System.out.println("Timed out while trying to log in: " + e.getMessage());
+		} catch (NoSuchElementException e) {
+			System.out.println("Element not found: " + e.getMessage());
+		}
+	}
+
+	private void cleanPage(Map<String, List<String>> elementsToRemove, JavascriptExecutor js) {
+		elementsToRemove.forEach((type, names) -> {
+			for (String name : names) {
+				if ("id".equalsIgnoreCase(type)) {
+					removeElementById(name, js);
+				} else if ("tag".equalsIgnoreCase(type)) {
+					removeElementByTag(name, js);
+				}
+			}
+		});
+	}
+
+	private List<WebElement> waitForElements(String selector, int timeoutSeconds) {
+		return new WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
+				.until(ExpectedConditions.presenceOfAllElementsLocatedBy(By.cssSelector(selector)));
+	}
+
+	private void closeModalIfPresent(JavascriptExecutor js) {
+		js.executeScript("let modal = document.querySelector('div[role=\"dialog\"]'); if (modal) modal.remove();");
+	}
+
+	private boolean scrollIntoViewAndWait(WebElement element, JavascriptExecutor js) {
+		try {
+			js.executeScript("arguments[0].scrollIntoView({behavior:'instant', block:'center'});", element);
+			new WebDriverWait(driver, Duration.ofSeconds(3)).until(ExpectedConditions.visibilityOf(element));
+			return true;
+		} catch (TimeoutException e) {
+			return false;
+		}
+	}
+	
+	
+	private boolean forceScrollToElement(WebDriver driver, WebElement element, int offset) {
+	    try {
+	        JavascriptExecutor js = (JavascriptExecutor) driver;
+
+	        Number beforeScroll = (Number) js.executeScript("return window.scrollY;");
+	        log.info("📍 Before scroll: {}", beforeScroll.longValue());
+
+	        js.executeScript(
+	            "window.scrollTo(0, arguments[0].getBoundingClientRect().top + window.scrollY - arguments[1]);",
+	            element, offset
+	        );
+
+	        Thread.sleep(1000); // Let the page settle/render
+
+	        Number afterScroll = (Number) js.executeScript("return window.scrollY;");
+	        log.info("📍 After scroll: {}", afterScroll.longValue());
+
+	        new WebDriverWait(driver, Duration.ofSeconds(9))
+	                .until(ExpectedConditions.visibilityOf(element));
+
+	        return true;
+	    } catch (Exception e) {
+	        log.error("❌ Error while scrolling: {}", e.getMessage(), e);
+	        return false;
+	    }
+	}
+
 }

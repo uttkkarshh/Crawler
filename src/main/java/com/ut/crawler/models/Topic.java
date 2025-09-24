@@ -16,7 +16,7 @@ public class Topic {
     public void setName(String name) {
 		this.name = name;
 	}
-
+    private String description;
 	private Instant createdAt;
 
     @OneToMany(mappedBy = "topic", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -72,4 +72,13 @@ public class Topic {
                 ", scrollCount=" + scrolls.size() +
                 '}';
     }
+
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
 }

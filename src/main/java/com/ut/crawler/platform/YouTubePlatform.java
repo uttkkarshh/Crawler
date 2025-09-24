@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 @Service
 public class YouTubePlatform implements Platform {
-
+/*
     private final BrowsingHelper helper = new BrowsingHelper();
     @Override
     public PlatformType getPlatformType() {
@@ -50,7 +50,7 @@ public class YouTubePlatform implements Platform {
             elementsToRemove.put("tag", Arrays.asList("tp-yt-app-drawer"));
 
             scroll = helper.scrollAndCaptureSnips(
-            	    driver,
+            
             	    10,                              // count: how many posts to process
             	    3,                               // skip: how many to skip after each
             	    "ytd-video-renderer",            // itemSelector: selector for post container
@@ -70,7 +70,7 @@ public class YouTubePlatform implements Platform {
         return  scroll;
     }
     
-    
+    */
     
     
     
@@ -81,4 +81,16 @@ public class YouTubePlatform implements Platform {
         // ping https://youtube.com or check basic page load
         return true;
     }
+
+	@Override
+	public PlatformType getPlatformType() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Scroll crawl(Topic topic) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

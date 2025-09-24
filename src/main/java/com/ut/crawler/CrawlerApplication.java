@@ -5,19 +5,22 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Component;
 
-import com.ut.crawler.models.Topic;
-import com.ut.crawler.platform.PlatformType;
+
 import com.ut.crawler.service.CrawlServiceImpl;
 
+import jakarta.annotation.PreDestroy;
+
 @SpringBootApplication
+@EnableScheduling
 public class CrawlerApplication {
 
-    private static final String LINKEDIN_URL = "https://www.linkedin.com";
+    
 	public static void main(String[] args) {
 		SpringApplication.run(CrawlerApplication.class, args);
-		 
+	    
 	}
 	   @Component
 	    public static class AppRunner {
@@ -33,7 +36,13 @@ public class CrawlerApplication {
 	        public void run() {
 	        	 System.setProperty("webdriver.chrome.driver", "C:\\Users\\utkar\\Downloads\\tools\\chromedriver.exe");
 	            
-	             crawlerService.crawlPlatform(PlatformType.YOUTUBE,new Topic("MRBEAST"));
+	             crawlerService.crawlPlatform();
+	        }
+
+	        @PreDestroy
+	        public void onShutdown() {
+	            System.out.println("🛑 Shutting down crawler...");
+	            crawlerService.shutdown();
 	        }
 	    }
 }

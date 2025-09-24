@@ -5,8 +5,10 @@ package com.ut.crawler.queue;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import com.ut.crawler.models.CrawlUrl;
+import org.springframework.stereotype.Component;
 
+import com.ut.crawler.models.CrawlUrl;
+@Component
 public class FrontQueueManager {
     private final ConcurrentLinkedQueue<CrawlUrl> high = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<CrawlUrl> medium = new ConcurrentLinkedQueue<>();
