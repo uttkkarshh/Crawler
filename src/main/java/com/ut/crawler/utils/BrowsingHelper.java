@@ -93,7 +93,7 @@ public class BrowsingHelper {
 		JavascriptExecutor js = (JavascriptExecutor) driver;
 		js.executeScript("window.scrollBy(0, 300);");
 		try {
-			List<WebElement> comments = new WebDriverWait(driver, Duration.ofSeconds(5))
+			List<WebElement> comments = new WebDriverWait(driver, Duration.ofSeconds(2))
 					.until(ExpectedConditions.presenceOfAllElementsLocatedBy(By.cssSelector(commentSelector)));
 
 			log.info("💬 Found {} comments", comments.size());

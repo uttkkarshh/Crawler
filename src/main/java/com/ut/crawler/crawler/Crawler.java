@@ -5,6 +5,7 @@ import com.ut.crawler.models.TypeOfUrl;
 import com.ut.crawler.platform.PlatformContext;
 import com.ut.crawler.platform.PlatformRegistry;
 import com.ut.crawler.queue.BackQueueManager;
+import com.ut.crawler.queue.HeapScheduler;
 import com.ut.crawler.repository.TopicRepository;
 import com.ut.crawler.service.UrlProcessingService;
 import com.ut.crawler.models.CrawlUrl;
@@ -19,7 +20,7 @@ public class Crawler implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(Crawler.class);
 
-    private final PlatformContext platform;
+    private  PlatformContext platform;
     private Topic topic;
 
     private final BackQueueManager backqueue;
@@ -27,15 +28,17 @@ public class Crawler implements Runnable {
     private final UrlProcessingService urlProcessingService;
     private final WebDriverPool driverPool;
     private final PlatformRegistry platformRegistry;
+    private final HeapScheduler heapScheduler;
     public Crawler(PlatformContext platform,
                    BackQueueManager backqueue,
                    UrlProcessingService urlProcessingService,
-                   WebDriverPool driverPool, PlatformRegistry platformRegistry) {
+                   WebDriverPool driverPool, PlatformRegistry platformRegistry,HeapScheduler heapScheduler) {
         this.platform = platform;
         this.backqueue = backqueue;
         this.urlProcessingService = urlProcessingService;
         this.driverPool = driverPool;
 		this.platformRegistry = platformRegistry;
+		this.heapScheduler =heapScheduler;
     }
 
     @Override
@@ -67,7 +70,13 @@ public class Crawler implements Runnable {
             while (running) {
                 CrawlUrl url = null;
                 try {
-                    url = backqueue.takeFromDomain(platform.getName().toUpperCase());
+                    url = heapScheduler.take();
+                    if (url == null) {
+                        log.warn("⚠️ No URL found in domain queue. Exiting loop.");
+                        break;
+                    }
+
+                    platform= platformRegistry.getPlatformByName(url.getPlatform());
                 } catch (InterruptedException ie) {
                     log.info("🛑 Crawler interrupted, stopping gracefully.");
                     Thread.currentThread().interrupt(); // reset interrupt flag
@@ -75,11 +84,7 @@ public class Crawler implements Runnable {
                     break;
                 }
 
-                if (url == null) {
-                    log.warn("⚠️ No URL found in domain queue. Exiting loop.");
-                    break;
-                }
-
+             
                 log.info("🔍 Processing URL: {} [{}]", url.getUrl(), url.getType());
 
                 try {

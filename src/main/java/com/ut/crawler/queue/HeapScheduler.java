@@ -9,6 +9,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 
+import org.springframework.stereotype.Component;
+@Component
 public class HeapScheduler {
 
     private final BackQueueManager backQueueManager;
@@ -37,6 +39,8 @@ public class HeapScheduler {
 
     public HeapScheduler(BackQueueManager backQueueManager) {
         this.backQueueManager = backQueueManager;
+        registerDomain("youtube", 10); // 1 request/sec
+        registerDomain("reddit", 10);  // 1 request/1.5 sec
     }
 
     public void registerDomain(String domain, long rateLimitMs) {

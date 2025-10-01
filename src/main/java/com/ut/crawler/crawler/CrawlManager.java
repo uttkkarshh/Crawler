@@ -6,6 +6,7 @@ import com.ut.crawler.platform.PlatformType;
 import com.ut.crawler.queue.BackQueueManager;
 import com.ut.crawler.queue.BackQueueRouter;
 import com.ut.crawler.queue.FrontQueueManager;
+import com.ut.crawler.queue.HeapScheduler;
 import com.ut.crawler.repository.TopicRepository;
 import com.ut.crawler.service.PostService;
 import com.ut.crawler.service.SeedFetchService;
@@ -38,6 +39,7 @@ public class CrawlManager {
     private final SeedFetchService seedFetch;
     private final PlatformRegistry platformRegistry;
     private final TaskExecutor crawlerExecutor;
+    private final HeapScheduler heapScheduler;
     public CrawlManager(
             BackQueueManager backqueue,
             FrontQueueManager frontqueue,
@@ -45,7 +47,7 @@ public class CrawlManager {
             UrlProcessingService urlProcessingService,
             SeedFetchService seedFetch,
             PlatformRegistry platformRegistry,TaskExecutor crawlerExecutor
-            ,WebDriverPool driverPool
+            ,WebDriverPool driverPool,HeapScheduler heapScheduler
     ) {
         this.driverPool = driverPool;
 		this.backqueue = backqueue;
@@ -54,6 +56,7 @@ public class CrawlManager {
         this.seedFetch = seedFetch;
 		this.platformRegistry = platformRegistry;
 		this.crawlerExecutor = crawlerExecutor;
+		this.heapScheduler = heapScheduler;
         
     }
 
@@ -80,7 +83,7 @@ public class CrawlManager {
    
     public void startCrawler(PlatformContext context) {
     	try {
-        Crawler crawler = new Crawler(context, backqueue, urlProcessingService,driverPool,platformRegistry);
+        Crawler crawler = new Crawler(context, backqueue, urlProcessingService,driverPool,platformRegistry,heapScheduler);
         activeCrawlers.add(crawler);
         crawlerExecutor.execute(crawler);
     
