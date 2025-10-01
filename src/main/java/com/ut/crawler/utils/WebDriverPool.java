@@ -56,6 +56,9 @@ public class WebDriverPool {
             pool.offer(driver);
             logger.info("📥 Returned WebDriver to pool. Available now: {}", pool.size());
         }
+        else {
+        	 logger.info("Driver NULL");
+        }
     }
 
     /** Graceful shutdown */
