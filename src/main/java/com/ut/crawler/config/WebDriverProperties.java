@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "webdriver")
 public class WebDriverProperties {
 
-    private int poolSize = 3; // default
+    private int poolSize = 2; // default
     private String chromePath;
 
     public int getPoolSize() {

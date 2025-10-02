@@ -27,7 +27,7 @@ public class SeedFetchService {
       private WebDriver driver = null;
     public SeedFetchService(WebDriverPool driverPool) {
     	
-		WebDriver driver = null;
+	    driver = null;
 		this.driverPool = driverPool;
 
 		try {

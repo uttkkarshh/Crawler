@@ -56,6 +56,9 @@ public class UrlProcessingService {
 
             for (Snip snip : scroll.getSnips()) {
                 for (Post post : snip.getPosts()) {
+                	  if (post.getUrl() != null && post.getUrl().contains("youtube.com/shorts")) {
+                          continue;
+                      }
                     frontqueue.enqueue(new CrawlUrl(
                         post.getUrl(),
                         PriorityLevel.HIGH,
