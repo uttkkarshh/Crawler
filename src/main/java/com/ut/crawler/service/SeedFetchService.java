@@ -27,7 +27,7 @@ public class SeedFetchService {
       private WebDriver driver = null;
     public SeedFetchService(WebDriverPool driverPool) {
     	
-		WebDriver driver = null;
+	    driver = null;
 		this.driverPool = driverPool;
 
 		try {
@@ -47,8 +47,8 @@ public class SeedFetchService {
        
 
         // Categories to fetch
-      //  List<Integer> categories = List.of(10, 2, 4, 6);
-        List<Integer> categories = List.of(10);
+        List<Integer> categories = List.of(10, 2, 4, 6);
+      //List<Integer> categories = List.of(10);
         for (Integer category : categories) {
             String url = "https://trends.google.com/trending?geo=IN&hours=24&category=" + category;
             helper.visitUrl(url, 1);
